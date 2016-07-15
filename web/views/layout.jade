@@ -1,0 +1,12 @@
+doctype html
+html(ng-app='squadup')
+	head(ng-controller="header")
+		title {{title}}
+		block header
+		script(src='https://ajax.googleapis.com/ajax/libs/angularjs/1.5.7/angular.min.js')
+		script(src='https://ajax.googleapis.com/ajax/libs/angularjs/1.5.7/angular-route.min.js')
+		script(src='https://ajax.googleapis.com/ajax/libs/jquery/3.0.0/jquery.min.js')
+	body
+		block content
+		//- Magic
+		script(src="/index/js/core.js")
