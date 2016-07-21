@@ -11,12 +11,12 @@ module.exports = mongoose.model('Room', new mongoose.Schema({
         ref: 'User'
     },
     privacy: {
-        default: 0,
+        default: 1,
         type: Number
     },
     participants: [{
-        type: String, 
-        ref:'User'
+        type: String,
+        ref: 'User'
         //availability?
     }],
     name: {
@@ -50,5 +50,15 @@ module.exports = mongoose.model('Room', new mongoose.Schema({
     updated: {
         default: Date.now(),
         type: Date
-    }
+    },
+    dates: [{
+        who: {
+            type: String,
+            ref: 'User'
+        },
+        dates: [{
+            start: Date,
+            end: Date
+        }]
+    }]
 }));

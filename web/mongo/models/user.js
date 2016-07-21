@@ -12,14 +12,18 @@ module.exports = mongoose.model('User', new mongoose.Schema({
         nickname: String,
         pic_url: String,
         email: String,
-        phone: String,
+        phone: Number,
         description: String,
     },
     unavailabilty: [{
-    	start: Date,
-    	end: Date
+        start: Date,
+        end: Date
     }],
     rooms: [{
+        type: String,
+        ref: 'Room'
+    }],
+    participating: [{
         type: String,
         ref: 'Room'
     }],

@@ -23,12 +23,12 @@ Router.route('/')
 
         var user = new User({
             details: {
-                first_name: "Khauri",
-                last_name: "McClain",
-                nickname: "Creator",
-                email: "kmcclain@email.wm.edu",
-                phone: "NULL",
-                description: "I made this shit!"
+                first_name: req.body.first_name,
+                last_name: req.body.last_name,
+                nickname: req.body.nickname,
+                email: req.body.email,
+                phone: req.body.phone,
+                description: req.body.description
             }
         });
 
@@ -37,6 +37,7 @@ Router.route('/')
                 res.json(err);
             } else {
                 res.json({
+                    status: 200,
                     message: "success"
                 });
             }
@@ -66,9 +67,26 @@ Router.route("/:user_id")
         }, function(err, user) {
 
         });
+    })
+    .delete(function(req, res, next) {
+        User.findOne({
+            _id: req.params.user_id
+        })
+            .remove()
+            .exec(function(err) {
+                if (err) {
+                    res.json(err);
+                } else {
+                    //remove user from all rooms in
+                    res.json({
+                        status: 200,
+                        message: "success"
+                    })
+                }
+            });
     });
 
-Router.route('/:user_id/rooms/:room_id?')
+Router.route('/:user_id/rooms/:room_ids?')
     .get(function(req, res, next) {
         //if room_id check if user associate with room
         User.findOne({
@@ -85,32 +103,48 @@ Router.route('/:user_id/rooms/:room_id?')
             });
     })
     .put(function(req, res, next) {
-
+        var rooms = req.params.room_ids.split(',');
     })
     .delete(function(req, res, next) {
-
+        var rooms = req.params.room_ids.split(',')
     });
 
-Router.route('/:user_id/friends/:friend_id?')
+Router.route('/:user_id/friends/:friend_ids?')
     .get(function(req, res, next) {
-        User.findOne({
-            _id: req.params.user_id
-        })
-            .populate('friends')
-            .select('friends -_id')
-            .where('friends')
-            .slice(10)
-            .exec(function(err, friends) {
-                if (err) {
-
+        if (req.params.friend_ids) {
+            var friends = req.params.friend_ids.split(","),
+                result = {};
+            User.findOne({
+                _id: req.params.user_id
+            }).exec(function(err, user) {
+                if (friends.length == 1) {
+                    res.json(user.friends.indexOf(friends[0]) != -1);
                 } else {
-                    res.json(friends);
+                    for (var i = 0; i < friends.length; i++) {
+                        result[friends[i]] = user.friends.indexOf(friends[i]) != -1
+                    }
+                    res.json(result);
                 }
             });
+        } else {
+            User.findOne({
+                _id: req.params.user_id
+            })
+                .populate('friends')
+                .select('friends _id')
+                .exec(function(err, friends) {
+                    if (err) {
+
+                    } else {
+                        res.json(friends);
+                    }
+                });
+        }
     })
     .put(function(req, res, next) {
-        if (!req.params.friend_id) {
+        if (!req.params.friend_ids) {
             res.json({
+                status: 400,
                 message: 'failed'
             })
         } else {
@@ -121,22 +155,30 @@ Router.route('/:user_id/friends/:friend_id?')
                     if (err) {
                         res.json(err);
                     } else {
-                        User.findOne({
-                            _id: req.params.friend_id
-                        })
-                            .exec(function(err, friend) {
-                                if (err) {
-
-                                } else if (friend) {
-                                    user.friends.addToSet(friend._id);
-                                    user.save();
-                                    friend.friends.addToSet(user._id);
-                                    friend.save();
-                                    res.json({
-                                        message: 'success'
-                                    });
+                        //to be fixed
+                        var friend_ids = req.params.friend_ids.split(',');
+                        User.find({
+                            _id: {
+                                $in: friend_ids
+                            }
+                        }).exec(function(err, friends) {
+                            var friend;
+                            for (var i = 0; i < friends.length; i++) {
+                                if (friend == user._id) {
+                                    continue;
                                 }
-                            })
+                                friend = friends[i];
+                                user.friends.addToSet(friend._id);
+                                user.save();
+                                friend.friends.addToSet(user._id);
+                                friend.save();
+                                res.json({
+                                    status: 200,
+                                    message: 'success'
+                                })
+                            }
+                            
+                        });
                     }
                 })
         }
