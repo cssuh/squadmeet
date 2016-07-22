@@ -1,7 +1,7 @@
 var mongoose = require('mongoose');
 var shortid = require('shortid');
 
-module.exports = mongoose.model('Room', new mongoose.Schema({
+var RoomSchema = new mongoose.Schema({
     _id: {
         type: String,
         default: shortid.generate
@@ -61,4 +61,29 @@ module.exports = mongoose.model('Room', new mongoose.Schema({
             end: Date
         }]
     }]
-}));
+});
+
+RoomSchema.statics.findById = function(id, cb) {
+    return this.find({
+        _id: id
+    }, cb);
+};
+
+RoomSchema.methods.addParticipants = function(participants, cb) {
+
+};
+
+RoomSchema.methods.removeParticipants = function(participants, cb) {
+
+};
+
+RoomSchema.methods.addDates = function(dates, cb) {
+
+};
+
+RoomSchema.methods.removeDates = function(dates, cb) {
+
+}
+
+
+module.exports = mongoose.model('Room', RoomSchema);

@@ -13,7 +13,7 @@ Router.route('/')
             limit = parseInt(q.limit) || 10,
             sort = q.sort || "created"; // created, -created, etc...
 
-        Room.find().limit(limit).sort(sort).exec(function(err, rooms) {
+        Room.find().sort(sort).limit(limit).exec(function(err, rooms) {
             if (err) {
                 res.json(err);
             } else {
@@ -43,7 +43,8 @@ Router.route('/')
                         message: 'user does not exist'
                     })
                 } else {
-                    user.rooms.push(room._id);
+                    user.rooms.addToSet(room._id);
+                    room.participants.addToSet(user._id);
                     user.save();
                     room.save();
                     res.json({
@@ -123,18 +124,46 @@ Router.route('/:room_id/participants/:participant_ids?')
         }
     })
     .put(function(req, res, next) {
-        //add participants
+        //add participants to room
         if (!req.params.participant_ids) {
             res.json({
                 status: 400,
                 message: "Request requires at least one participant-id"
             })
         } else {
+            //participants are comma delimited
+            var party = req.params.participant_ids.split(',');
+            console.log(party);
             Room.findOne({
                 _id: req.params.room_id
             })
                 .exec(function(err, room) {
-
+                    if (err) {
+                        res.json(err);
+                    } else if (!room) {
+                        res.json(null);
+                    } else {
+                        User.find({
+                            _id: {
+                                $in: party
+                            }
+                        })
+                            .exec(function(err, users) {
+                                var user;
+                                for (var i = 0; i < users.length; i++) {
+                                    user = users[i];
+                                    //add room to user and user to room
+                                    user.participating.addToSet(room._id);
+                                    room.participants.addToSet(user._id);
+                                    user.save();
+                                }
+                                room.save();
+                                res.json({
+                                    status: 200,
+                                    message: 'success'
+                                })
+                            });
+                    }
                 })
         }
     })
@@ -146,7 +175,38 @@ Router.route('/:room_id/participants/:participant_ids?')
                 message: "Request requires at least one participant-id"
             })
         } else {
-
+            var party = req.params.participant_ids.split(',')
+            Room.update({
+                _id: req.params.room_id
+            }, {
+                $pull: {
+                    'participants': {
+                        $in: party
+                    }
+                }
+            }, function(err) {
+                if (err) {
+                    res.json(err);
+                } else {
+                    User.update({
+                        _id: {
+                            $in: party
+                        }
+                    }, {
+                        $pull: {
+                            'participating': req.params.room_id
+                        }
+                    }, {
+                        multi: true
+                    }, function(err, data) {
+                        if (err) {
+                            res.json(err);
+                        } else {
+                            res.json(data);
+                        }
+                    })
+                }
+            });
         }
     });
 
