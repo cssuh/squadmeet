@@ -1,3 +1,13 @@
-div {{room.name}}
-div {{room.description}}
-div Created by {{room.creator.details.nickname}} on {{room.created}}
+.room.main_container
+	.left
+		.info_container
+			.name_container
+				div {{room.name}}
+			.description_container
+				div {{room.description}}
+			.meta_container
+				div Created by {{room.creator.details.nickname}} on {{room.created}}
+		.dates_container
+	.right
+		.squad_container
+			.squad_member

@@ -1,6 +1,7 @@
 body,
 html {
   padding: 0px;
+  margin: 0px;
   background-color: #25212b;
   color: #fff;
   font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
@@ -8,4 +9,15 @@ html {
 a {
   color: #00b7ff;
   text-decoration: none;
+}
+p {
+  margin: 0px;
+}
+.navbar {
+  background-color: #fff;
+  min-height: 75px;
+}
+.banner {
+  width: 100%;
+  position: static;
 }

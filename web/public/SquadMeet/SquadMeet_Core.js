@@ -1,0 +1,3 @@
+var SquadMeet = (function() {
+    return {};
+})();

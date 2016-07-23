@@ -48,6 +48,7 @@
                 $http.get(url)
                     .success(function(data) {
                         console.log(data);
+                        data.created = new Date(data.created);
                         if (typeof cb == "function") {
                             cb(data);
                         }
@@ -66,6 +67,7 @@
 
         })
         .controller('roomController', function($scope, $routeParams, roomService) {
+            $scope.room = null;
             roomService.getRoom({
                 id: $routeParams.room_id
             }, function(data) {
