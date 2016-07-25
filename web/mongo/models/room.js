@@ -6,61 +6,61 @@ var RoomSchema = new mongoose.Schema({
         type: String,
         default: shortid.generate
     },
-    creator: {
-        type: String,
-        ref: 'User'
-    },
-    privacy: {
-        default: 1,
-        type: Number
-    },
-    participants: [{
-        type: String,
-        ref: 'User'
-        //availability?
-    }],
-    name: {
-        default: "",
-        type: String
-    },
-    description: {
-        default: "",
-        type: String
-    },
-    start_date: {
-        default: Date.now(),
-        type: Date
-    },
-    end_date: {
-        default: Date.now() + 8.64e+7, // add 24 hours
-        type: Date,
-    },
-    location: {
+    event: {
         name: {
-            type: String
+            type: String,
+            default: ''
         },
-        coordinates: {
-            type: String
+        description: {
+            type: String,
+            default: ''
+        },
+        range: {
+            start: {
+                type: Date,
+                default: Date.now()
+            },
+            end: {
+                type: Date,
+                default: Date.now() + 8.64e+7
+            }
+        },
+        location: {
+            name: String,
+            coordinates: String
         }
     },
-    created: {
-        default: Date.now(),
-        type: Date
-    },
-    updated: {
-        default: Date.now(),
-        type: Date
-    },
-    dates: [{
-        who: {
+    room: {
+        host: {
             type: String,
-            ref: 'User'
+            ref: 'User',
+            required: true
         },
-        dates: [{
-            start: Date,
-            end: Date
-        }]
-    }]
+        participants: [{
+            _id: false,
+            status: Number, // 0=invited, 1=accepted, 2=rejected
+            user: {
+                type: String,
+                ref: 'User'
+            },
+            availability: [{
+                start: Date,
+                end: Date
+            }]
+        }],
+        privacy: {
+            type: Number,
+            default: 1
+        },
+        created: {
+            type: Date,
+            default: Date.now()
+        },
+        updated: {
+            type: Date,
+            default: Date.now()
+        }
+    }
 });
 
 RoomSchema.statics.findById = function(id, cb) {
@@ -68,6 +68,18 @@ RoomSchema.statics.findById = function(id, cb) {
         _id: id
     }, cb);
 };
+
+RoomSchema.methods.updateRoom = function(details, cb) {
+    /*var keys = Object.keys[details];
+    for (var i = 0; i < keys.length; i++) {
+    }*/
+    this.updated = Date.now();
+    this.save();
+}
+
+RoomSchema.methods.hasParticipant = function(user_id) {
+    return this.room.participants.indexOf(user_id) != -1;
+}
 
 RoomSchema.methods.addParticipants = function(participants, cb) {
 

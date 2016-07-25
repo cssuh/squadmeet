@@ -23,11 +23,10 @@ Router.route('/')
 
         var user = new User({
             details: {
-                first_name: req.body.first_name,
-                last_name: req.body.last_name,
+                name: req.body.name,
                 nickname: req.body.nickname,
-                email: req.body.email,
-                phone: req.body.phone,
+                //email: req.body.email,
+                //phone: req.body.phone,
                 description: req.body.description
             }
         });
@@ -52,7 +51,7 @@ Router.route("/:user_id")
             _id: req.params.user_id
         })
             .populate('friends', 'details')
-            .populate('rooms')
+            .populate('rooms.hosting rooms.participating')
             .exec(function(err, user) {
                 if (err) {
 
@@ -62,11 +61,29 @@ Router.route("/:user_id")
             });
     })
     .put(function(req, res, next) {
-        User.findOne({
-            _id: req.params.user_id
-        }, function(err, user) {
-
-        });
+        //update the details of the user
+        User.findById(req.params.user_id, function(err, user) {
+            if (err) {
+                res.json(err);
+            } else {
+                user.set({
+                    details: {
+                        name: req.body.name || user.details.name,
+                        nickname: req.body.nickname || user.details.nickname,
+                        description: req.body.description || user.details.description,
+                    }
+                })
+                user.save(function(err) {
+                    if (err) {
+                        res.json(err)
+                    } else {
+                        res.json({
+                            message: 'success'
+                        })
+                    }
+                })
+            }
+        })
     })
     .delete(function(req, res, next) {
         User.findOne({
@@ -177,7 +194,7 @@ Router.route('/:user_id/friends/:friend_ids?')
                                     message: 'success'
                                 })
                             }
-                            
+
                         });
                     }
                 })

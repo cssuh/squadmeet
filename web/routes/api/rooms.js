@@ -22,39 +22,25 @@ Router.route('/')
         });
     })
     .post(function(req, res, next) {
-        console.log(req.body);
 
         var room = new Room({
-            creator: req.body.creator,
-            privacy: req.body.privacy,
-            name: req.body.name,
-            description: req.body.description,
-        });
-        //add the room to the creator
-        User.findOne({
-            _id: room.creator
-        }, function(err, user) {
-            if (err) {
-                res.json(err)
-            } else {
-                if (!user) {
-                    res.json({
-                        status: 400,
-                        message: 'user does not exist'
-                    })
-                } else {
-                    user.rooms.addToSet(room._id);
-                    room.participants.addToSet(user._id);
-                    user.save();
-                    room.save();
-                    res.json({
-                        status: 200,
-                        message: 'success'
-                    });
+            room: {
+                host: req.body.host,
+                privacy: req.body.privacy
+            },
+            event: {
+                name: req.body.name,
+                description: req.body.description,
+                location: {
+                    name: req.body.location_name,
+                    coordinates: req.body.location_coords
                 }
             }
+        });
+        //add the room to the creator
+        User.findUserAndAddRoom(room, null, function(data) {
+            res.json(data);
         })
-
     });
 
 Router.route('/:room_id')
@@ -62,7 +48,8 @@ Router.route('/:room_id')
         Room.findOne({
             _id: req.params.room_id
         })
-            .populate('creator', 'details')
+            .populate('room.host', 'details')
+            .populate('room.participants.user', 'details')
             .exec(function(err, room) {
                 if (err) {
                     res.json(err);
@@ -72,7 +59,38 @@ Router.route('/:room_id')
             });
     })
     .put(function(req, res, next) {
-
+        Room.findOne({
+            _id: req.params.room_id
+        })
+            .exec(function(err, room) {
+                if (err) {
+                    res.json(err);
+                } else if (!room) {
+                    res.json({
+                        message: 'room not found'
+                    });
+                } else {
+                    room.set({
+                        room: {
+                            host: req.body.host || room.room.host,
+                            privacy: req.body.privacy || room.room.privacy
+                        },
+                        event: {
+                            name: req.body.name || room.event.name,
+                            description: req.body.description || room.event.description,
+                            location: {
+                                name: req.body.location_name || room.event.location.name,
+                                coordinates: req.body.location_coords || room.event.location.coordinates
+                            }
+                        }
+                    })
+                    room.save(function(err) {
+                        res.json(err || {
+                            message: 'success'
+                        })
+                    })
+                }
+            })
     })
     .delete(function(req, res, next) {
         Room.findOne({
@@ -91,34 +109,20 @@ Router.route('/:room_id')
 
 Router.route('/:room_id/participants/:participant_ids?')
     .get(function(req, res, next) {
+        //comma delimeted user-ids
         if (req.params.participant_ids) {
-            var ids = req.params.participants_ids.split(","),
-                results = {};
-            Room.findOne({
-                _id: req.params.room_id
-            })
-                .exec(function(err, room) {
-                    if (ids.length == 1) {
-                        res.json(room.participants.indexOf(ids[0] != -1))
-                    } else {
-                        for (var i = 0; i < ids.length; i++) {
-                            results[ids[i]] = room.participants.indexOf(ids[i]) != -1;
-                        }
-                        res.json(results)
-                    }
-                    //check if participant
-                });
+            res.json("To Be Implemented Soon")
         } else {
             Room.findOne({
                 _id: req.params.room_id
             })
-                .populate('participants')
-                .select('participants')
-                .exec(function(err, room) {
+                .populate('room.participants.user', 'details')
+                .select('room.participants')
+                .exec(function(err, result) {
                     if (err) {
                         res.json(err);
                     } else {
-                        res.json(room);
+                        res.json(result.room.participants);
                     }
                 });
         }
@@ -133,7 +137,6 @@ Router.route('/:room_id/participants/:participant_ids?')
         } else {
             //participants are comma delimited
             var party = req.params.participant_ids.split(',');
-            console.log(party);
             Room.findOne({
                 _id: req.params.room_id
             })
@@ -143,26 +146,9 @@ Router.route('/:room_id/participants/:participant_ids?')
                     } else if (!room) {
                         res.json(null);
                     } else {
-                        User.find({
-                            _id: {
-                                $in: party
-                            }
-                        })
-                            .exec(function(err, users) {
-                                var user;
-                                for (var i = 0; i < users.length; i++) {
-                                    user = users[i];
-                                    //add room to user and user to room
-                                    user.participating.addToSet(room._id);
-                                    room.participants.addToSet(user._id);
-                                    user.save();
-                                }
-                                room.save();
-                                res.json({
-                                    status: 200,
-                                    message: 'success'
-                                })
-                            });
+                        User.findUserAndAddRoom(room, party, function(data) {
+                            res.json(data);
+                        });
                     }
                 })
         }
@@ -175,46 +161,36 @@ Router.route('/:room_id/participants/:participant_ids?')
                 message: "Request requires at least one participant-id"
             })
         } else {
-            var party = req.params.participant_ids.split(',')
-            Room.update({
+            var party = req.params.participant_ids.split(',');
+            Room.findOne({
                 _id: req.params.room_id
-            }, {
-                $pull: {
-                    'participants': {
-                        $in: party
-                    }
-                }
-            }, function(err) {
-                if (err) {
-                    res.json(err);
-                } else {
-                    User.update({
-                        _id: {
-                            $in: party
-                        }
-                    }, {
-                        $pull: {
-                            'participating': req.params.room_id
-                        }
-                    }, {
-                        multi: true
-                    }, function(err, data) {
-                        if (err) {
-                            res.json(err);
-                        } else {
-                            res.json(data);
-                        }
-                    })
-                }
-            });
+            })
+                .exec(function(err, room) {
+
+                })
         }
     });
 
-Router.route('/:room_id/dates/:date_ranges?/:user_id?')
+Router.route('/:room_id/dates/:user_id?/:date_ranges?')
     .get(function(req, res, next) {
-
+        if(req.params.user_id){
+            //get particular dates for one user
+        }
+        // get all the dates for everyone in room
+        Room.findOne({
+            _id: req.params.room_id
+        })
+            .select('room.participants.availability room.participants.user')
+            .exec(function(err, result) {
+                if (err) {
+                    res.json(err);
+                } else {
+                    res.json(result.room.participants);
+                }
+            })
     })
     .put(function(req, res, next) {
+        var user_id = req.params.user_id;
         var dates = req.params.date_ranges.split(',').map(function(date) {
             var range = date.split("+");
             return {
@@ -225,16 +201,28 @@ Router.route('/:room_id/dates/:date_ranges?/:user_id?')
         Room.findOne({
             _id: req.params.room_id
         })
-            .exec(function(err, room) {
-                room.save();
-            });
+            .select('room.participants.availability room.participants.user')
+            .exec(function(err, results){
+                res.json(results);
+            })
     })
     .delete(function(req, res, next) {
 
     });
 
-Router.route('/:room_id/creator').get(function() {
-    Room.findOne(req.pa)
+Router.route('/:room_id/host').get(function() {
+    Room.findOne({
+        _id: req.params.room_id
+    })
+        .populate('room.host')
+        .select('room.host')
+        .exec(function(err, result) {
+            if (err) {
+                res.json(err);
+            } else {
+                res.json(result);
+            }
+        })
 });
 
 module.exports = Router;
