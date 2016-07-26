@@ -22,22 +22,23 @@ Router.route('/')
     .post(function(req, res, next) {
 
         var user = new User({
-            details: {
+            info: {
                 name: req.body.name,
                 nickname: req.body.nickname,
-                //email: req.body.email,
-                //phone: req.body.phone,
+                emails: req.body.email,
+                phones: req.body.phone,
                 description: req.body.description
             }
         });
 
-        user.save(function(err, user) {
+        user.save(function(err) {
             if (err) {
                 res.json(err);
             } else {
                 res.json({
                     status: 200,
-                    message: "success"
+                    message: 'success',
+                    user: user
                 });
             }
         });
@@ -67,7 +68,7 @@ Router.route("/:user_id")
                 res.json(err);
             } else {
                 user.set({
-                    details: {
+                    info: {
                         name: req.body.name || user.details.name,
                         nickname: req.body.nickname || user.details.nickname,
                         description: req.body.description || user.details.description,
@@ -129,31 +130,26 @@ Router.route('/:user_id/rooms/:room_ids?')
 Router.route('/:user_id/friends/:friend_ids?')
     .get(function(req, res, next) {
         if (req.params.friend_ids) {
-            var friends = req.params.friend_ids.split(","),
-                result = {};
             User.findOne({
                 _id: req.params.user_id
             }).exec(function(err, user) {
-                if (friends.length == 1) {
-                    res.json(user.friends.indexOf(friends[0]) != -1);
+                if (err) {
+                    res.json(err);
                 } else {
-                    for (var i = 0; i < friends.length; i++) {
-                        result[friends[i]] = user.friends.indexOf(friends[i]) != -1
-                    }
-                    res.json(result);
+                    res.json(user.isFriendsWith(req.params.friend_ids));
                 }
             });
         } else {
             User.findOne({
                 _id: req.params.user_id
             })
-                .populate('friends')
-                .select('friends _id')
-                .exec(function(err, friends) {
+                .populate('friends', 'info')
+                .select('friends')
+                .exec(function(err, result) {
                     if (err) {
-
+                        res.json(err);
                     } else {
-                        res.json(friends);
+                        res.json(result.friends)
                     }
                 });
         }
@@ -172,36 +168,39 @@ Router.route('/:user_id/friends/:friend_ids?')
                     if (err) {
                         res.json(err);
                     } else {
-                        //to be fixed
-                        var friend_ids = req.params.friend_ids.split(',');
-                        User.find({
-                            _id: {
-                                $in: friend_ids
-                            }
-                        }).exec(function(err, friends) {
-                            var friend;
-                            for (var i = 0; i < friends.length; i++) {
-                                if (friend == user._id) {
-                                    continue;
-                                }
-                                friend = friends[i];
-                                user.friends.addToSet(friend._id);
-                                user.save();
-                                friend.friends.addToSet(user._id);
-                                friend.save();
+                        user.addFriends(req.params.friend_ids, function(err, data) {
+                            if (err) {
+                                res.json(err);
+                            } else {
                                 res.json({
-                                    status: 200,
-                                    message: 'success'
-                                })
+                                    message: 'requests made',
+                                    added: user.isFriendsWith(req.params.friend_ids)
+                                });
                             }
-
                         });
+                        //to be fixed
                     }
                 })
         }
     })
     .delete(function(req, res, next) {
-
+        if (!req.params.friend_ids) {
+            res.json({
+                status: 400,
+                message: 'failed'
+            })
+        } else {
+            User.findOne({
+                _id: req.params.user_id
+            })
+                .exec(function(err, user) {
+                    user.removeFriends(req.params.friend_ids, function(err) {
+                        res.json(err || {
+                            message: 'successfully removed'
+                        })
+                    });
+                });
+        }
     });
 
 module.exports = Router;

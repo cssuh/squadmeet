@@ -6,7 +6,7 @@ var userSchema = new mongoose.Schema({
         type: String,
         default: shortid.generate
     },
-    details: {
+    info: {
         name: String,
         nickname: {
             type: String,
@@ -61,8 +61,10 @@ userSchema.statics.findUserAndAddRoom = function(room, party, cb) {
                 cb(err);
             } else {
                 var user;
-                if(party.length == 1 && users.length == 0){
-                    cb({message:"Aborted: User-id " + party[0] +" not in database"});
+                if (party.length == 1 && users.length == 0) {
+                    cb({
+                        message: "Aborted: User-id " + party[0] + " not in database"
+                    });
                     return false;
                 }
                 var status;
@@ -95,6 +97,71 @@ userSchema.statics.findUserAndRemoveRoom = function(room, userid, cb) {
         .exec(function(err, user) {
 
         });
+}
+
+/** Determine if a user is friends with another user or users */
+userSchema.methods.isFriendsWith = function(p, cb) {
+    if (!p) return false;
+    if (p.indexOf(',') != -1) {
+        var ids = p.split(','),
+            results = {};
+        for (var i = 0; i < ids.length; i++) {
+            results[ids[i]] = this.friends.indexOf(ids[i]) != -1;
+        }
+        return results;
+    } else {
+        return this.friends.indexOf(p) != -1;
+    }
+}
+
+/** add a friend or friends to the user **/
+userSchema.methods.addFriends = function(f, cb) {
+    var friends = f.split(',');
+    var self = this;
+    this.model('User').find({
+        _id: {
+            $in: friends
+        }
+    }, function(err, result) {
+        if (err) {
+            //
+        } else {
+            var friend;
+            for (var i = 0; i < result.length; i++) {
+                friend = result[i];
+                if (friend._id == self._id) {
+                    continue;
+                }
+                //update later to reflect a request type system
+                friend.friends.addToSet(self._id); 
+                self.friends.addToSet(friend._id);
+                friend.save();
+            }
+        }
+        self.save(cb)
+    })
+}
+
+/** add or remove friends from the user **/
+userSchema.methods.removeFriends = function(f, cb) {
+    var friends = f.split('.');
+    this.friends.pull(friends)
+    this.save(cb);
+}
+
+userSchema.methods.addRoom = function(r, hosting) {
+    if (hosting) {
+        this.rooms.hosting.addToSet(r);
+    } else {
+        this.rooms.participating.addToSet(r);
+    }
+    return this;
+}
+
+userSchema.methods.removeRoom = function(r) {
+    this.rooms.hosting.pull(r);
+    this.rooms.participating.pull(r);
+    return this;
 }
 
 module.exports = mongoose.model('User', userSchema);
